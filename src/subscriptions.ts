@@ -108,12 +108,9 @@ export async function getSubscribedDeltas(
   if (!skipAlgodSync) {
     start = +new Date()
     blockDeltas = await getDeltasBulk({ startRound: algodSyncFromRoundNumber, maxRound: endRound }, algod)
-    // TODO: maybe llm?
-    // blockDeltas = deltas.flatMap((b) => getBlockTransactions(b))
-    // blockMetadata = blocks.map((b) => blockResponseToBlockMetadata(b))
 
     Config.logger.debug(
-      `Retrieved ${blockDeltas.length} transactions from algod via round(s) ${algodSyncFromRoundNumber}-${endRound} in ${
+      `Retrieved ${blockDeltas.length} deltas from algod via round(s) ${algodSyncFromRoundNumber}-${endRound} in ${
         (+new Date() - start) / 1000
       }s`,
     )

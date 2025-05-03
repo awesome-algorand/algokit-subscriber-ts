@@ -29,13 +29,11 @@ if (!fs.existsSync(path.join(__dirname, '..', '..', '.env')) && !process.env.ALG
     },
     algorand.client.algod,
   )
-  subscriber.on('deltas', (transfer) => {
-    // eslint-disable-next-line no-console
-    console.log(
-      `${transfer.sender} sent ${transfer.assetTransferTransaction?.receiver} USDC$${Number(
-        (transfer.assetTransferTransaction?.amount ?? 0n) / 1_000_000n,
-      ).toFixed(2)} in transaction ${transfer.id}`,
-    )
+
+
+  subscriber.onBatch('deltas', (deltas) => {
+    const delta = deltas[0] as unknown as algosdk.LedgerStateDelta
+    console.log(delta.kvMods.size)
   })
   subscriber.onError((e) => {
     // eslint-disable-next-line no-console

@@ -81,10 +81,8 @@ export class AlgorandSubscriber {
     )
 
 
-
-    await this.eventEmitter.emitAsync(`batch:delta`, [pollResult.blockDeltas])
-    await this.eventEmitter.emitAsync("delta", pollResult.blockDeltas)
-
+    await this.eventEmitter.emitAsync(`batch:deltas`, pollResult.blockDeltas)
+    await this.eventEmitter.emitAsync("deltas", pollResult.blockDeltas)
     await this.eventEmitter.emitAsync('poll', pollResult)
 
     await this.config.watermarkPersistence.set(pollResult.newWatermark)
