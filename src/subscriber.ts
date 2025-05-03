@@ -148,7 +148,7 @@ export class AlgorandSubscriber {
       watermark,
       currentRound,
     } satisfies BeforePollMetadata)
-    if(typeof this.config.filters === 'string') {
+    if(typeof this.config.filters !== 'string') {
       return this.pollTransactionsOnce() as Promise<T extends string ? DeltaSubscriptionResult : TransactionSubscriptionResult>
     } else {
       return this.pollDeltasOnce() as Promise<T extends string ? DeltaSubscriptionResult : TransactionSubscriptionResult>

@@ -24,7 +24,8 @@
     "watch-dhm": "cross-env RUN_LOOP=true npm run dhm",
     "xgov": "npx prisma migrate dev && ts-node-dev --project tsconfig.dev.json --transpile-only --watch .env -r dotenv/config ./examples/xgov-voting/index.ts",
     "watch-xgov": "cross-env RUN_LOOP=true npm run xgov",
-    "usdc": "ts-node-dev --project tsconfig.dev.json --transpile-only --watch .env -r dotenv/config ./examples/usdc/index.ts"
+    "usdc": "ts-node-dev --project tsconfig.dev.json --transpile-only --watch .env -r dotenv/config ./examples/usdc/index.ts",
+    "data": "ts-node-dev --project tsconfig.dev.json --transpile-only --watch .env -r dotenv/config ./examples/arc-TBD/index.ts"
   },
   "prisma": {
     "schema": "examples/xgov-voting/prisma/schema.prisma"
