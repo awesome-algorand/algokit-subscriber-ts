@@ -914,7 +914,7 @@ describe('Subscribing to calls that effect balance changes', () => {
 
     const subscriber = new AlgorandSubscriber(config, mainnet.client.algod)
 
-    const pollResult = await subscriber.pollOnce()
+    const pollResult = await subscriber.pollTransactionsOnce()
     expect(pollResult.subscribedTransactions).toHaveLength(1)
 
     const txn = pollResult.subscribedTransactions[0]
@@ -930,7 +930,7 @@ describe('Subscribing to calls that effect balance changes', () => {
     config.syncBehaviour = 'catchup-with-indexer'
     watermark = testRound - 1n
     const indexerSubscriber = new AlgorandSubscriber(config, mainnet.client.algod, mainnet.client.indexer)
-    const indexerPollResult = await indexerSubscriber.pollOnce()
+    const indexerPollResult = await indexerSubscriber.pollTransactionsOnce()
     expect(indexerPollResult.subscribedTransactions).toHaveLength(1)
     const indexerTxn = indexerPollResult.subscribedTransactions[0]
 

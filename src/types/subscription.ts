@@ -3,8 +3,16 @@ import algosdk from 'algosdk'
 import { Arc28EventGroup, EmittedArc28Event } from './arc-28'
 import TransactionType = algosdk.TransactionType
 
+
+export interface DeltaSubscriptionResult extends SubscriptionResult {
+  blockDeltas: algosdk.LedgerStateDelta[]
+}
+export interface TransactionSubscriptionResult extends SubscriptionResult {
+  subscribedTransactions: SubscribedTransaction[]
+}
+
 /** The result of a single subscription pull/poll. */
-export interface TransactionSubscriptionResult {
+export interface SubscriptionResult {
   /** The round range that was synced from/to */
   syncedRoundRange: [startRound: bigint, endRound: bigint]
   /** The current detected tip of the configured Algorand blockchain. */
@@ -17,12 +25,13 @@ export interface TransactionSubscriptionResult {
    * after processing (or in the same atomic transaction as)
    * subscribed transactions to keep it reliable. */
   newWatermark: bigint
+  blockDeltas?: algosdk.LedgerStateDelta[]
   /** Any transactions that matched the given filter within
    * the synced round range. This substantively uses the [indexer transaction
    * format](https://dev.algorand.co/reference/rest-apis/indexer#transaction)
    * to represent the data with some additional fields.
    */
-  subscribedTransactions: SubscribedTransaction[]
+  subscribedTransactions?: SubscribedTransaction[]
   /** The metadata about any blocks that were retrieved from algod as part
    * of the subscription poll.
    */
@@ -255,7 +264,7 @@ export interface CoreTransactionSubscriptionParams {
    * ```
    *
    */
-  filters: NamedTransactionFilter[]
+  filters: NamedTransactionFilter[] | string
   /** Any ARC-28 event definitions to process from app call logs */
   arc28Events?: Arc28EventGroup[]
   /** The maximum number of rounds to sync from algod for each subscription pull/poll.
@@ -363,7 +372,7 @@ export interface TransactionFilter {
 }
 
 /** Parameters to control a single subscription pull/poll. */
-export interface TransactionSubscriptionParams extends CoreTransactionSubscriptionParams {
+export interface SubscriptionParams extends CoreTransactionSubscriptionParams {
   /** The current round watermark that transactions have previously been synced to.
    *
    * Persist this value as you process transactions processed from this method
@@ -385,7 +394,7 @@ export interface TransactionSubscriptionParams extends CoreTransactionSubscripti
 /** Configuration for an `AlgorandSubscriber`. */
 export interface AlgorandSubscriberConfig extends CoreTransactionSubscriptionParams {
   /** The set of filters to subscribe to / emit events for, along with optional data mappers. */
-  filters: SubscriberConfigFilter<unknown>[]
+  filters: SubscriberConfigFilter<unknown>[] | string
   /** The frequency to poll for new blocks in seconds; defaults to 1s */
   frequencyInSeconds?: number
   /** Whether to wait via algod `/status/wait-for-block-after` endpoint when at the tip of the chain; reduces latency of subscription */

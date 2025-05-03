@@ -8,7 +8,7 @@ import type {
   NamedTransactionFilter,
   TransactionFilter,
   TransactionInBlock,
-  TransactionSubscriptionParams,
+  SubscriptionParams,
 } from '../src/types'
 
 export const SendXTransactions = async (x: number, account: Account, algorand: AlgorandClient) => {
@@ -36,7 +36,7 @@ export const SendXTransactions = async (x: number, account: Account, algorand: A
 
 export const GetSubscribedTransactions = (
   subscription: {
-    syncBehaviour: TransactionSubscriptionParams['syncBehaviour']
+    syncBehaviour: SubscriptionParams['syncBehaviour']
     roundsToSync: number
     indexerRoundsToSync?: number
     watermark?: bigint
@@ -79,7 +79,7 @@ export const GetSubscribedTransactions = (
 
 export const GetSubscribedTransactionsFromSender = (
   subscription: {
-    syncBehaviour: TransactionSubscriptionParams['syncBehaviour']
+    syncBehaviour: SubscriptionParams['syncBehaviour']
     roundsToSync: number
     indexerRoundsToSync?: number
     watermark?: bigint

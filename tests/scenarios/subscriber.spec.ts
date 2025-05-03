@@ -34,7 +34,7 @@ describe('AlgorandSubscriber', () => {
               sender: config.testAccount.addr.toString(),
             },
           },
-          ...(config.configOverrides?.filters ?? []),
+          ...(Array.isArray(config.configOverrides?.filters) ? config.configOverrides?.filters ?? [] : []),
         ],
         syncBehaviour: config.configOverrides?.syncBehaviour ?? 'sync-oldest',
         watermarkPersistence: InMemoryWatermark(
@@ -65,7 +65,7 @@ describe('AlgorandSubscriber', () => {
     } = getSubscriber({ testAccount, initialWatermark: lastTxnRound - 1n }, algorand)
 
     // Initial catch up with indexer
-    const result = await subscriber.pollOnce()
+    const result = await subscriber.pollTransactionsOnce()
     expect(subscribedTxns.length).toBe(1)
     expect(subscribedTxns[0]).toBe(txIds[0])
     expect(getWatermark()).toBeGreaterThanOrEqual(lastTxnRound)
@@ -141,7 +141,7 @@ describe('AlgorandSubscriber', () => {
     })
 
     // Initial catch up
-    const result = await subscriber.pollOnce()
+    const result = await subscriber.pollTransactionsOnce()
     console.log(
       `Synced ${result.subscribedTransactions.length} transactions from rounds ${result.syncedRoundRange[0]}-${result.syncedRoundRange[1]} when current round is ${result.currentRound}`,
       result.subscribedTransactions.map((t) => t.id),
@@ -167,7 +167,7 @@ describe('AlgorandSubscriber', () => {
 
     // Random transaction
     const { lastTxnRound: lastTxnRound2 } = await SendXTransactions(1, randomAccount, algorand)
-    const result2 = await subscriber.pollOnce()
+    const result2 = await subscriber.pollTransactionsOnce()
     expect(result2.subscribedTransactions.length).toBe(0)
     expect(getWatermark()).toBeGreaterThanOrEqual(lastTxnRound2)
 
@@ -176,7 +176,7 @@ describe('AlgorandSubscriber', () => {
     const { txIds: txIds13 } = await SendXTransactions(2, senders[0], algorand)
     const { lastTxnRound: lastSubscribedRound3, txIds: txIds23, txns: txns23 } = await SendXTransactions(2, senders[1], algorand)
 
-    const result3 = await subscriber.pollOnce()
+    const result3 = await subscriber.pollTransactionsOnce()
     console.log(
       `Synced ${result3.subscribedTransactions.length} transactions from rounds ${result3.syncedRoundRange[0]}-${result3.syncedRoundRange[1]} when current round is ${result3.currentRound}`,
       result3.subscribedTransactions.map((t) => t.id),
@@ -336,7 +336,7 @@ describe('AlgorandSubscriber', () => {
       })
 
     subscriber.start((result) => {
-      eventsEmitted.push(`inspect:${result.subscribedTransactions.map((b) => b.id).join(':')}`)
+      eventsEmitted.push(`inspect:${result.subscribedTransactions?.map((b) => b.id).join(':')}`)
       pollComplete = true
     })
 

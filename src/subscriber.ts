@@ -1,12 +1,12 @@
 import { Config } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
-import { getSubscribedTransactions } from './subscriptions'
+import {getSubscribedDeltas, getSubscribedTransactions} from './subscriptions'
 import { AsyncEventEmitter, AsyncEventListener } from './types/async-event-emitter'
 import type {
   AlgorandSubscriberConfig,
-  BeforePollMetadata,
+  BeforePollMetadata, DeltaSubscriptionResult,
   ErrorListener,
-  SubscribedTransaction,
+  SubscribedTransaction, SubscriptionResult,
   TransactionSubscriptionResult,
   TypedAsyncEventListener,
 } from './types/subscription'
@@ -45,7 +45,7 @@ export class AlgorandSubscriber {
     this.abortController = new AbortController()
     this.eventEmitter = new AsyncEventEmitter().on(this.errorEventName, this.defaultErrorHandler)
 
-    this.filterNames = this.config.filters
+    this.filterNames = typeof this.config.filters === 'string' ? [] : this.config.filters
       .map((f) => f.name)
       .filter((value, index, self) => {
         // Remove duplicates
@@ -57,14 +57,45 @@ export class AlgorandSubscriber {
     }
   }
 
-  /**
-   * Execute a single subscription poll.
-   *
-   * This is useful when executing in the context of a process
-   * triggered by a recurring schedule / cron.
-   * @returns The poll result
-   */
-  async pollOnce(): Promise<TransactionSubscriptionResult> {
+  async pollDeltasOnce(): Promise<DeltaSubscriptionResult> {
+    if(this.config.filters !== "deltas"){
+      throw new Error('Must use "deltas" filter when using this behaviour')
+    }
+
+    const watermark = await this.config.watermarkPersistence.get()
+
+    const currentRound = (await this.algod.status().do()).lastRound
+    await this.eventEmitter.emitAsync('before:poll', {
+      watermark,
+      currentRound,
+    } satisfies BeforePollMetadata)
+
+    const pollResult = await getSubscribedDeltas(
+      {
+        watermark,
+        currentRound,
+        ...this.config,
+      },
+      this.algod,
+      this.indexer,
+    )
+
+
+
+    await this.eventEmitter.emitAsync(`batch:delta`, [pollResult.blockDeltas])
+    await this.eventEmitter.emitAsync("delta", pollResult.blockDeltas)
+
+    await this.eventEmitter.emitAsync('poll', pollResult)
+
+    await this.config.watermarkPersistence.set(pollResult.newWatermark)
+    return pollResult
+
+  }
+  async pollTransactionsOnce(): Promise<TransactionSubscriptionResult> {
+    if(typeof this.config.filters === 'string') {
+      throw new Error('Cannot poll transactions when using a single filter name')
+    }
+
     const watermark = await this.config.watermarkPersistence.get()
 
     const currentRound = (await this.algod.status().do()).lastRound
@@ -104,13 +135,34 @@ export class AlgorandSubscriber {
   }
 
   /**
+   * Execute a single subscription poll.
+   *
+   * This is useful when executing in the context of a process
+   * triggered by a recurring schedule / cron.
+   * @returns The poll result
+   */
+  async pollOnce<T = typeof this.config.filters>(): Promise<T extends string ? DeltaSubscriptionResult: TransactionSubscriptionResult > {
+    const watermark = await this.config.watermarkPersistence.get()
+    const currentRound = (await this.algod.status().do()).lastRound
+    await this.eventEmitter.emitAsync('before:poll', {
+      watermark,
+      currentRound,
+    } satisfies BeforePollMetadata)
+    if(typeof this.config.filters === 'string') {
+      return this.pollTransactionsOnce() as Promise<T extends string ? DeltaSubscriptionResult : TransactionSubscriptionResult>
+    } else {
+      return this.pollDeltasOnce() as Promise<T extends string ? DeltaSubscriptionResult : TransactionSubscriptionResult>
+    }
+  }
+
+  /**
    * Start the subscriber in a loop until `stop` is called.
    *
    * This is useful when running in the context of a long-running process / container.
    * @param inspect A function that is called for each poll so the inner workings can be inspected / logged / etc.
    * @returns An object that contains a promise you can wait for after calling stop
    */
-  start(inspect?: (pollResult: TransactionSubscriptionResult) => void, suppressLog?: boolean): void {
+  start<T extends SubscriptionResult>(inspect?: (pollResult: T) => void, suppressLog?: boolean): void {
     if (this.started) return
     this.started = true
     if (this.abortController.signal.aborted) {
@@ -127,9 +179,9 @@ export class AlgorandSubscriber {
           startingWatermark: result.startingWatermark,
           newWatermark: result.newWatermark,
           syncedRoundRange: result.syncedRoundRange,
-          subscribedTransactionsLength: result.subscribedTransactions.length,
+          subscribedTransactionsLength: (result.subscribedTransactions?.length || 0) + (result.blockDeltas?.length || 0),
         })
-        inspect?.(result)
+        inspect?.(result as T)
         // eslint-disable-next-line no-console
         if (result.currentRound > result.newWatermark || !this.config.waitForBlockWhenAtTip) {
           Config.getLogger(suppressLog).info(
@@ -145,7 +197,7 @@ export class AlgorandSubscriber {
           // Despite what the `statusAfterBlock` method description suggests, you need to wait for the round before
           //  the round you are waiting for per the API description:
           //  https://dev.algorand.co/reference/rest-apis/algod/#waitforblock
-          await race(this.algod.statusAfterBlock(result.currentRound).do(), this.abortController.signal)
+          await race(this.algod.statusAfterBlock(result.currentRound).do(undefined, {signal: this.abortController.signal}), this.abortController.signal)
           Config.getLogger(suppressLog).info(`Waited for ${(+new Date() - waitStart) / 1000}s until next block`)
         }
       }

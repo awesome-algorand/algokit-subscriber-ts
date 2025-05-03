@@ -20,8 +20,8 @@ import {
   type BalanceChange,
   type NamedTransactionFilter,
   type TransactionFilter,
-  type TransactionSubscriptionParams,
-  type TransactionSubscriptionResult,
+  type SubscriptionParams,
+  type TransactionSubscriptionResult, DeltaSubscriptionResult,
 } from './types/subscription'
 import { chunkArray } from './utils'
 import ABITupleType = algosdk.ABITupleType
@@ -30,6 +30,7 @@ import Algodv2 = algosdk.Algodv2
 import Indexer = algosdk.Indexer
 import TransactionType = algosdk.TransactionType
 import OnApplicationComplete = algosdk.OnApplicationComplete
+import {getDeltasBulk} from "./delta";
 
 const deduplicateSubscribedTransactionsReducer = (dedupedTransactions: SubscribedTransaction[], t: SubscribedTransaction) => {
   const existing = dedupedTransactions.find((e) => e.id === t.id)
@@ -45,6 +46,90 @@ const deduplicateSubscribedTransactionsReducer = (dedupedTransactions: Subscribe
   return dedupedTransactions
 }
 
+export async function getSubscribedDeltas(
+  subscription: SubscriptionParams,
+  algod: Algodv2,
+  indexer?: Indexer,
+): Promise<DeltaSubscriptionResult> {
+  const { watermark, filters, maxRoundsToSync: _maxRoundsToSync, syncBehaviour: onMaxRounds, currentRound: _currentRound } = subscription
+  const maxRoundsToSync = _maxRoundsToSync ?? 500
+  const currentRound = _currentRound ?? (await algod.status().do()).lastRound
+  const currentDelta = await algod.getLedgerStateDelta(currentRound).do()
+
+
+  // Nothing to sync we at the tip of the chain already
+  if (currentRound <= watermark) {
+    return {
+      currentRound: currentRound,
+      startingWatermark: watermark,
+      newWatermark: watermark,
+      blockDeltas: [currentDelta],
+      syncedRoundRange: [currentRound, currentRound],
+    }
+  }
+
+  let algodSyncFromRoundNumber = watermark + 1n
+  let startRound = algodSyncFromRoundNumber
+  let endRound = currentRound
+
+  let start = +new Date()
+  let skipAlgodSync = false
+
+  // If we are less than `maxRoundsToSync` from the tip of the chain then we consult the `syncBehaviour` to determine what to do
+  if (currentRound - watermark > maxRoundsToSync) {
+    switch (onMaxRounds) {
+      case 'fail':
+        throw new Error(`Invalid round number to subscribe from ${algodSyncFromRoundNumber}; current round number is ${currentRound}`)
+      case 'skip-sync-newest':
+        algodSyncFromRoundNumber = currentRound - BigInt(maxRoundsToSync) + 1n
+        startRound = algodSyncFromRoundNumber
+        break
+      case 'sync-oldest':
+        endRound = algodSyncFromRoundNumber + BigInt(maxRoundsToSync) - 1n
+        break
+      case 'sync-oldest-start-now':
+        // When watermark is 0 same behaviour as skip-sync-newest
+        if (watermark === 0n) {
+          algodSyncFromRoundNumber = currentRound - BigInt(maxRoundsToSync) + 1n
+          startRound = algodSyncFromRoundNumber
+        } else {
+          // Otherwise same behaviour as sync-oldest
+          endRound = algodSyncFromRoundNumber + BigInt(maxRoundsToSync) - 1n
+        }
+        break
+      case 'catchup-with-indexer':
+        throw new Error('Not implemented')
+        break
+      default:
+        throw new Error('Not implemented')
+    }
+  }
+  let blockDeltas: algosdk.LedgerStateDelta[] = []
+  if (!skipAlgodSync) {
+    start = +new Date()
+    blockDeltas = await getDeltasBulk({ startRound: algodSyncFromRoundNumber, maxRound: endRound }, algod)
+    // TODO: maybe llm?
+    // blockDeltas = deltas.flatMap((b) => getBlockTransactions(b))
+    // blockMetadata = blocks.map((b) => blockResponseToBlockMetadata(b))
+
+    Config.logger.debug(
+      `Retrieved ${blockDeltas.length} transactions from algod via round(s) ${algodSyncFromRoundNumber}-${endRound} in ${
+        (+new Date() - start) / 1000
+      }s`,
+    )
+  } else {
+    Config.logger.debug(`Skipping algod sync since we have more than ${subscription.maxIndexerRoundsToSync} rounds to sync from indexer.`)
+  }
+
+  return {
+    syncedRoundRange: [startRound, endRound],
+    startingWatermark: watermark,
+    newWatermark: endRound,
+    currentRound,
+    blockDeltas,
+  }
+}
+
 /**
  * Executes a single pull/poll to subscribe to transactions on the configured Algorand
  * blockchain for the given subscription context.
@@ -54,11 +139,14 @@ const deduplicateSubscribedTransactionsReducer = (dedupedTransactions: Subscribe
  * @returns The result of this subscription pull/poll.
  */
 export async function getSubscribedTransactions(
-  subscription: TransactionSubscriptionParams,
+  subscription: SubscriptionParams,
   algod: Algodv2,
   indexer?: Indexer,
 ): Promise<TransactionSubscriptionResult> {
   const { watermark, filters, maxRoundsToSync: _maxRoundsToSync, syncBehaviour: onMaxRounds, currentRound: _currentRound } = subscription
+  if(typeof filters === 'string') {
+    throw new Error('Filters must be an array of filters')
+  }
   const maxRoundsToSync = _maxRoundsToSync ?? 500
   const currentRound = _currentRound ?? (await algod.status().do()).lastRound
   let blockMetadata: BlockMetadata[] | undefined
