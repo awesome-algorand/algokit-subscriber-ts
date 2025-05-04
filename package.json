@@ -1,12 +1,11 @@
 {
   "name": "@algorandfoundation/algokit-subscriber",
-  "version": "1.0.0",
+  "version": "3.2.0-deltas-experiment",
   "private": false,
   "scripts": {
     "build": "run-s build:*",
     "build:0-clean": "rimraf dist coverage",
     "build:1-compile": "rollup -c --configPlugin typescript",
-    "build:2-copy-pkg-json": "npx --yes @makerx/ts-toolkit@4.0.0-beta.22 copy-package-json --custom-sections module main type types exports",
     "build:3-copy-readme": "cpy README.md dist",
     "test": "vitest run --coverage --passWithNoTests",
     "test:watch": "vitest watch --coverage --passWithNoTests",
@@ -36,34 +35,34 @@
     "node": ">=18.0"
   },
   "type": "commonjs",
-  "main": "index.js",
-  "module": "index.mjs",
-  "types": "index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "files": [
     "**/*"
   ],
   "exports": {
     ".": {
-      "types": "./index.d.ts",
-      "import": "./index.mjs",
-      "require": "./index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
     "./block": {
-      "types": "./block.d.ts",
-      "import": "./block.mjs",
-      "require": "./block.js"
+      "types": "./dist/block.d.ts",
+      "import": "./dist/block.mjs",
+      "require": "./dist/block.js"
     },
     "./transform": {
-      "types": "./transform.d.ts",
-      "import": "./transform.mjs",
-      "require": "./transform.js"
+      "types": "./dist/transform.d.ts",
+      "import": "./dist/transform.mjs",
+      "require": "./dist/transform.js"
     },
     "./types/*": {
-      "types": "./types/*.d.ts",
-      "import": "./types/*.mjs",
-      "require": "./types/*.js"
+      "types": "./dist/types/*.d.ts",
+      "import": "./dist/types/*.mjs",
+      "require": "./dist/types/*.js"
     },
-    "./index.d.ts": "./index.d.ts",
+    "./index.d.ts": "./dist/index.d.ts",
     "./package.json": "./package.json"
   },
   "devDependencies": {
@@ -89,8 +88,8 @@
     "semantic-release": "^23.0.6",
     "tiny-invariant": "^1.3.3",
     "ts-node-dev": "^2.0.0",
-    "typedoc": "^0.25.4",
-    "typedoc-plugin-markdown": "^3.17.1",
+    "typedoc": "^0.28.0",
+    "typedoc-plugin-markdown": "^4.6.3",
     "typescript": "^5.4.3",
     "typescript-eslint": "^8.16.0",
     "vitest": "^2.1.9"
