@@ -2,7 +2,7 @@ import type { ApplicationOnComplete } from '@algorandfoundation/algokit-utils/ty
 import algosdk from 'algosdk'
 import { Arc28EventGroup, EmittedArc28Event } from './arc-28'
 import TransactionType = algosdk.TransactionType
-
+import { Mutex, Semaphore } from 'async-mutex'
 
 export interface DeltaSubscriptionResult extends SubscriptionResult {
   blockDeltas: algosdk.LedgerStateDelta[]
@@ -305,6 +305,14 @@ export interface CoreTransactionSubscriptionParams {
    *  * `fail`: Throw an error.
    **/
   syncBehaviour: 'skip-sync-newest' | 'sync-oldest' | 'sync-oldest-start-now' | 'catchup-with-indexer' | 'fail'
+
+  /**
+   * Represents a synchronization mechanism used to control access to a shared resource.
+   * Can be an instance of a Mutex or a Semaphore.
+   * - Mutex: Ensures exclusive access to a resource by allowing only one thread or process to hold the lock at any given time.
+   * - Semaphore: Allows multiple threads or processes to access a resource concurrently, up to a specified limit.
+   */
+  lock: Mutex | Semaphore
 }
 
 /** Specify a named filter to apply to find transactions of interest. */
