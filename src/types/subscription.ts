@@ -2,6 +2,7 @@ import type { ApplicationOnComplete } from '@algorandfoundation/algokit-utils/in
 import type { Transaction as IndexerTransaction } from '@algorandfoundation/algokit-utils/indexer-client'
 import { TransactionType } from '@algorandfoundation/algokit-utils/transact'
 import { Arc28EventGroup, EmittedArc28Event } from './arc-28'
+import { LedgerDeltaObserver } from './deltas'
 
 /** The result of a single subscription pull/poll. */
 export interface TransactionSubscriptionResult {
@@ -27,6 +28,8 @@ export interface TransactionSubscriptionResult {
    * of the subscription poll.
    */
   blockMetadata?: BlockMetadata[]
+  /** Any ledger deltas that were retrieved from algod as part of the subscription poll. */
+  ledgerDeltas?: LedgerDeltaObserver[]
 }
 
 /** Metadata about a block that was retrieved from algod. */
@@ -277,6 +280,8 @@ export interface CoreTransactionSubscriptionParams {
    *  * `fail`: Throw an error.
    **/
   syncBehaviour: 'skip-sync-newest' | 'sync-oldest' | 'sync-oldest-start-now' | 'catchup-with-indexer' | 'fail'
+  /** Whether to process ledger deltas; defaults to false. */
+  processDeltas?: boolean
 }
 
 /** Specify a named filter to apply to find transactions of interest. */

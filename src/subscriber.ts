@@ -11,6 +11,7 @@ import type {
   TransactionSubscriptionResult,
   TypedAsyncEventListener,
 } from './types/subscription'
+import { LedgerDeltaObserver } from './types/deltas'
 import { race, sleep } from './utils'
 
 /**
@@ -94,6 +95,11 @@ export class AlgorandSubscriber {
         }
       }
       await this.eventEmitter.emitAsync('poll', pollResult)
+      if (pollResult.ledgerDeltas) {
+        for (const delta of pollResult.ledgerDeltas) {
+          await this.eventEmitter.emitAsync('delta', delta)
+        }
+      }
     } catch (e) {
       Config.logger.error(`Error processing event emittance`, e)
       throw e
@@ -255,6 +261,22 @@ export class AlgorandSubscriber {
    */
   onPoll(listener: TypedAsyncEventListener<TransactionSubscriptionResult>) {
     this.eventEmitter.on('poll', listener as AsyncEventListener)
+    return this
+  }
+
+  /**
+   * Register an event handler to run on every ledger delta.
+   *
+   * The listener can be async and it will be awaited if so.
+   * @example
+   * ```typescript
+   * subscriber.onDelta(async (delta) => { console.log(delta.round) })
+   * ```
+   * @param listener The listener function to invoke with the ledger delta
+   * @returns The subscriber so `on*` calls can be chained
+   */
+  onDelta(listener: TypedAsyncEventListener<LedgerDeltaObserver>) {
+    this.eventEmitter.on('delta', listener as AsyncEventListener)
     return this
   }
 

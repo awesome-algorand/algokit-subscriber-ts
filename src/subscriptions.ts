@@ -11,6 +11,7 @@ import { OnApplicationComplete, TransactionType } from '@algorandfoundation/algo
 import { Buffer } from 'buffer'
 import sha512, { sha512_256 } from 'js-sha512'
 import { getBlocksBulk } from './block'
+import { getLedgerDeltasBulk, LedgerDeltaObserverImpl } from './deltas'
 import {
   algodOnCompleteToIndexerOnComplete,
   blockResponseToBlockMetadata,
@@ -183,6 +184,7 @@ export async function getSubscribedTransactions(
 
   // Retrieve and process blocks from algod
   let algodTransactions: SubscribedTransaction[] = []
+  let ledgerDeltas: LedgerDeltaObserverImpl[] | undefined
   if (!skipAlgodSync) {
     start = +new Date()
     const blocks = await getBlocksBulk({ startRound: algodSyncFromRoundNumber, maxRound: endRound }, algod)
@@ -196,6 +198,11 @@ export async function getSubscribedTransactions(
       .reduce(deduplicateSubscribedTransactionsReducer, [])
 
     blockMetadata = blocks.map((b) => blockResponseToBlockMetadata(b))
+
+    if (subscription.processDeltas) {
+      const deltas = await getLedgerDeltasBulk({ startRound: algodSyncFromRoundNumber, maxRound: endRound }, algod)
+      ledgerDeltas = deltas.map((d) => new LedgerDeltaObserverImpl(d))
+    }
 
     Config.logger.debug(
       `Retrieved ${blockTransactions.length} transactions from algod via round(s) ${algodSyncFromRoundNumber}-${endRound} in ${
@@ -212,6 +219,7 @@ export async function getSubscribedTransactions(
     newWatermark: endRound,
     currentRound,
     blockMetadata,
+    ledgerDeltas,
     subscribedTransactions: catchupTransactions
       .concat(algodTransactions)
       .map((t) => processExtraFields(t, arc28Events, subscription.arc28Events ?? [])),
